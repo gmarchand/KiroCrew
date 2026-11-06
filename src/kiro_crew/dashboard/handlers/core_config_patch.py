@@ -29,6 +29,7 @@ from kiro_crew.config.sections_tailnet import TAILNET_OPENING_PATHS
 from kiro_crew.config.superseded_defaults import ack_explicit_write
 from kiro_crew.dashboard.body_numbers import body_int
 from kiro_crew.dashboard.handlers._shared import require_owner_dashboard_request
+from kiro_crew.dashboard.handlers.config_all_settings import generic_value_error
 from kiro_crew.dashboard.handlers.core_config_models import (
     _active_provider_and_pin_backend,
     _active_provider_name,
@@ -246,6 +247,68 @@ def _drop_dangling_default_profile(section: object) -> None:
         del section["default_profile"]
 
 
+def _raw_leaf(data: dict, parts: list[str]) -> dict[str, Any]:
+    """``{"stored": False}`` when the raw config has no leaf at *parts*, else
+    ``{"stored": True, "value": <leaf>}``."""
+    node: Any = data
+    for part in parts:
+        if not isinstance(node, dict) or part not in node:
+            return {"stored": False}
+        node = node[part]
+    return {"stored": True, "value": node}
+
+
+def _generic_rule_error(spec: dict[str, Any], value: Any) -> str:
+    """Why the route's branch for *spec* refuses *value*, or "".
+
+    Covers the rule shapes ``generic_spec`` builds (``type`` with ``values``,
+    ``min``/``max``, ``max_len``, ``max_items``/``max_item_len``), with the same
+    limits and defaults as the branches in ``api_kirocrew_config_patch``; the type
+    itself is ``generic_value_error``'s to judge.
+    """
+    if value is None:
+        # The generic check passes a null only for a nullable key, and the route stores it.
+        return ""
+    kind = spec["type"]
+    if kind == "enum":
+        return "" if value in spec["values"] else "not one of the key's values"
+    if kind in ("int", "float"):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return "must be a number"
+        if isinstance(value, float) and not math.isfinite(value):
+            return "must be a finite number"
+        lo, hi = spec.get("min", 0), spec.get("max", 999999)
+        return "" if lo <= value <= hi else f"must be between {lo} and {hi}"
+    if kind == "str":
+        return "" if len(value) <= spec.get("max_len", 256) else "too long"
+    if kind == "str_list":
+        return _str_list_problem(value, spec)
+    return ""
+
+
+def _restorable(path_key: str, spec: dict[str, Any], previous: dict[str, Any]) -> dict[str, Any]:
+    """*previous* in a form this route takes back, so Settings -> Advanced can undo to it.
+
+    The stored value is first read the way the loader reads it: a numeric string
+    (``"120"``) as the number it spells and a whole float (``120.0``) on an integer
+    key as that integer. A value the route still refuses (the wrong type, outside
+    the key's values or range, too long, not finite) is reported as not stored:
+    the loader reads the key's default for it, and Undo removing the key keeps that.
+    """
+    from kiro_crew.config.validation import _coerce_legacy_numeric_values
+
+    if not previous.get("stored"):
+        return previous
+    schema_type = {"int": "integer", "float": "number"}.get(spec["type"])
+    holder = {"v": previous.get("value")}
+    if schema_type:
+        _coerce_legacy_numeric_values(holder, {"properties": {"v": {"type": schema_type}}})
+    value = holder["v"]
+    if generic_value_error(path_key, value) is None and not _generic_rule_error(spec, value):
+        return {"stored": True, "value": value}
+    return {"stored": False}
+
+
 def _profile_ids(section: dict) -> set[str]:
     """Every profile id across the section's profile lists, of any provider,
     read the way the loader reads each list: a hand-edited entry it drops (an
@@ -341,8 +404,29 @@ async def api_kirocrew_config_patch(request: web.Request) -> web.Response:
             {"error": LOCKED_BY_POLICY, "code": "locked_by_policy"}, status=409
         )
 
+    # ``unset`` removes the stored value so the field reads its default again,
+    # including a later release's default. Only a schema-derived rule allows it: a
+    # curated key may carry guards (an enable refused under policy) that a removal
+    # would step around.
+    unset = body.get("unset", False)
+    if not isinstance(unset, bool):
+        return _deny("unset must be a boolean")
+    if unset and (if_unset or not spec.get("generic")):
+        return _deny(f"unset is not allowed for {path_key}", path_key)
+    if spec.get("generic") and not unset:
+        reason = await asyncio.to_thread(generic_value_error, path_key, value)
+        if reason:
+            return _deny(reason, f"{path_key}={value}")
+
     # Validate value
-    if spec["type"] == "enum":
+    if unset:
+        pass
+    elif value is None and spec.get("generic"):
+        # The generic check above passes a null only for a nullable key, which
+        # stores it as written: a config saved from the defaults holds one there,
+        # and Settings -> Advanced puts it back on Undo.
+        pass
+    elif spec["type"] == "enum":
         # ``values_fn`` (the same hook the ``str`` branch already carries) is for an
         # enum whose membership is not knowable at import: it can widen after boot
         # when an edition registers a backend. A static ``values`` list would be
@@ -676,11 +760,17 @@ async def api_kirocrew_config_patch(request: web.Request) -> web.Response:
     cfg_path = config_path()
     from kiro_crew.dashboard.handlers.agents import _get_config_lock  # noqa: F811
 
+    previous: dict[str, Any] = {}
     async with _get_config_lock():
         parts = path_key.split(".")
 
         def _mutate_config_patch(data: dict) -> dict | None:
             """Apply a single dotted-key assignment to the raw config dict."""
+            if spec.get("generic"):
+                # What the file held before this write, read under the lock, so
+                # Settings -> Advanced can undo to it: the masked view fills
+                # defaults in and cannot tell an absent leaf from a stored one.
+                previous.update(_raw_leaf(data, parts))
             if if_unset:
                 # Raw presence, not the loaded default: a stored default is a
                 # choice too. Check under the write lock so no save can race it.
@@ -698,6 +788,18 @@ async def api_kirocrew_config_patch(request: web.Request) -> web.Response:
             # ("agent.model"), and 3-level ("agent.role_models.background") —
             # instead of special-cases that would clobber a whole section for a
             # 3-level key.
+            if unset:
+                # Remove the leaf only; a missing or non-object parent has nothing
+                # stored to remove. The emptied parent stays: it reads as defaults.
+                parent = data
+                for part in parts[:-1]:
+                    child = parent.get(part)
+                    if not isinstance(child, dict):
+                        return data
+                    parent = child
+                parent.pop(parts[-1], None)
+                _resolution.drop_retired_section_keys(data)
+                return data
             section = data
             for part in parts[:-1]:
                 nxt = section.setdefault(part, {})
@@ -792,7 +894,10 @@ async def api_kirocrew_config_patch(request: web.Request) -> web.Response:
             return web.json_response({"error": "failed to write config file"}, status=500)
 
     # A structured value is audited by path only; a whole record would bloat each line.
-    _log_sel("success", path_key if spec["type"] == "normalized" else f"{path_key}={value}")
+    if unset:
+        _log_sel("success", f"{path_key} unset")
+    else:
+        _log_sel("success", path_key if spec["type"] == "normalized" else f"{path_key}={value}")
 
     # Everything a running gateway does in response to this write lives behind
     # ``config.live.subscribe`` (the provider switch and role-model rebuild are
@@ -830,4 +935,7 @@ async def api_kirocrew_config_patch(request: web.Request) -> web.Response:
     payload = _config_body(applied, await _kas_in_use(applied))
     if clamp_notice is not None:
         payload["clamp_notice"] = clamp_notice
+    if previous:
+        # Generic rules only; their keys are never `sensitive`, so the raw value is safe to echo.
+        payload["previous"] = await asyncio.to_thread(_restorable, path_key, spec, previous)
     return web.json_response(payload)
