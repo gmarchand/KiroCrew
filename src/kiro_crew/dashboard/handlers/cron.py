@@ -64,10 +64,13 @@ if TYPE_CHECKING:  # every owner-defined name in _EXPORTS, for type checkers and
     )
     from kiro_crew.dashboard.handlers.cron_jobs import (  # noqa: F401
         _APP_AUTO_RESETTING_FIELDS,
+        _COERCED_BOOL_FLAGS,
         _MAX_BATCH_DELETE,
         _MAX_CRON_BODY_BYTES,
         _T,
+        _WARN_ONLY_BOOL_FLAGS,
         _ChatFolderGone,
+        _coerce_bool_flag,
         _invalid_new_chat_per_run,
         _member_store,
         _persist_holding_folder,
@@ -77,6 +80,7 @@ if TYPE_CHECKING:  # every owner-defined name in _EXPORTS, for type checkers and
         _resolve_one_shot_at,
         _schema_field,
         _unknown_chat_folder_response,
+        _warn_only_bool_flag,
         _with_schedule_warnings,
         api_cron_batch_delete,
         api_cron_delete,
