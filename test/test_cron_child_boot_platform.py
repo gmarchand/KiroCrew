@@ -11,6 +11,7 @@ Must be runnable with ``--noconftest`` (no hypothesis dependency).
 
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -20,6 +21,7 @@ import pytest
 
 from kiro_crew.cron_script import run_script_sandboxed
 from kiro_crew.platform import PROFILE_ENTERPRISE
+from kiro_crew.platform.discovery import PLUGIN_GROUP
 
 
 @pytest.fixture(autouse=True)
@@ -167,6 +169,12 @@ class TestNonStandaloneFailsAtLaunchNotMidScript:
     sentinel is a FILE: a child failing inside user code exits 0 and drops stderr.
     """
 
+    # The child reads the host's real entry points, so an installed companion composes
+    # there and the fail-closed path this asserts is unreachable on that host.
+    @pytest.mark.skipif(
+        bool(importlib.metadata.entry_points(group=PLUGIN_GROUP)),
+        reason="a companion is installed on this host, so the cron child composes it",
+    )
     def test_boot_failure_precedes_user_code(
         self, _cron_home, _spawns_real_child, monkeypatch, tmp_path
     ):
