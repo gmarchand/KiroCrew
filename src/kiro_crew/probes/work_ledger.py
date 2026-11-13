@@ -43,7 +43,9 @@ import json
 import logging
 from typing import Callable
 
-from kiro_crew import irq, ledger_wake, work_ledger, work_preview
+from kiro_crew import irq, ledger_wake, work_ledger
+from kiro_crew import work_ledger_host_pressure as host_pressure
+from kiro_crew import work_preview
 from kiro_crew.work_vocab import (
     WORK_BLOCKED_REASONS,
     WORK_REASON_STATUSES,
@@ -94,6 +96,30 @@ CLOSED_KEY = "all-closed"
 #: The rate-file entry the "every item is closed" wake is charged to. Not an item
 #: id (those start ``it_``), so it shares no budget or seen set with a real item.
 _ALL_CLOSED_ENTRY = "_all_closed"
+
+#: Key prefix of a host-pressure wake. The rest is the episode and its level.
+_PRESSURE_KEY = "pressure"
+
+#: The rate-file entry a host-pressure wake is charged to, beside
+#: :data:`_ALL_CLOSED_ENTRY` and for the same reason.
+_PRESSURE_ENTRY = "_pressure"
+
+#: What a host-pressure wake says, per level. The rule it points at is the
+#: conductor's ``host_pressure`` rule.
+_PRESSURE_BRIEF: dict[str, str] = {
+    host_pressure.LEVEL_TIGHT: (
+        "[work-ledger wake] host memory is tight ({reading}): start no new item; "
+        "let the running ones finish"
+    ),
+    host_pressure.LEVEL_CRITICAL: (
+        "[work-ledger wake] host memory is critical ({reading}): start no new item, "
+        "and tell workers to hold heavy steps; a create is refused until it clears"
+    ),
+    host_pressure.LEVEL_CLEAR: (
+        "[work-ledger wake] host memory pressure cleared ({reading}): resume dispatch "
+        "and tell held workers to resume"
+    ),
+}
 
 #: :attr:`WorkLedgerProbe.revision` for a ledger that was read but holds no worker
 #: report yet. Not empty, because empty means "not known" to the gate.
@@ -259,13 +285,17 @@ class WorkLedgerProbe(irq.Probe):
             # only a stop or the loop's own bounds end it. Requires at least one
             # item, so an empty ledger (a watch armed before the first item) says
             # nothing.
-            return irq.Tick(epoch=epoch, observations=self._all_closed(key, items))
+            return irq.Tick(
+                epoch=epoch,
+                observations=[*self._all_closed(key, items), *self._host_pressure(key)],
+            )
 
         observations: list[irq.Observation] = []
         for item in items:
             if item.is_terminal:
                 continue
             observations.extend(self._item_observations(key, item, tails.get(item.item_id, [])))
+        observations.extend(self._host_pressure(key))
         # ``pending`` stays 0. It is what the coalescing window waits to drain, and
         # an item still being worked on never drains -- modelling work-in-progress
         # as pending would hold a ``question`` wake for the window's hard cap while
@@ -313,6 +343,31 @@ class WorkLedgerProbe(irq.Probe):
                 irq.Severity.WAKE,
                 detail + ". The watch stays armed: create the next item, or call autonudge_stop "
                 "if the goal is done.",
+                irq.ResetsOn.NEVER,
+            )
+        ]
+
+    def _host_pressure(self, conductor_key: str) -> list[irq.Observation]:
+        """The one wake for a new host-pressure level, or nothing.
+
+        ``docs/request-for-change/rfc-work-ledger-resource-pressure.md`` §3.3. Keyed
+        ``pressure:<episode>:<level>``, so each conductor wakes once per level change:
+        the notifier's 30 s refreshes and its 30-min critical re-alert carry the same
+        token and are quiet. Charged to its own entry in the rate file, so it never
+        spends a real item's budget. A stale or missing record is no news.
+        """
+        record = host_pressure.read_record()
+        if record is None:
+            return []
+        level = str(record["level"])
+        token = f"{_PRESSURE_KEY}:{record['episode']}:{level}"
+        if not self._spend(conductor_key, _PRESSURE_ENTRY, token, replaces=f"{_PRESSURE_KEY}:"):
+            return []
+        return [
+            irq.Observation(
+                token,
+                irq.Severity.WAKE,
+                _PRESSURE_BRIEF[level].format(reading=record.get("reading") or "?"),
                 irq.ResetsOn.NEVER,
             )
         ]

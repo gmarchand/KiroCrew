@@ -20,6 +20,7 @@ from typing import Any
 from aiohttp import web
 
 from kiro_crew import conductor_patrol, ledger_wake, session_ledger, work_ledger
+from kiro_crew import work_ledger_host_pressure as host_pressure
 from kiro_crew.dashboard import session_control
 from kiro_crew.dashboard.handlers.work_ledger_caller import (
     _caller_key,
@@ -193,6 +194,12 @@ async def api_work_ledger_get(request: web.Request) -> web.Response:
         goal_items_used=record.goal_items_used,
         max_depth=depth_cap,
     )
+    # The host's memory pressure while an episode is open, absent otherwise
+    # (rfc-work-ledger-resource-pressure §3.2). Host-wide, so the same block on
+    # every board; read off the loop, it is a file.
+    pressure = await asyncio.to_thread(host_pressure.read)
+    if pressure is not None:
+        conductor["host_pressure"] = pressure
     payload: dict[str, Any] = {"conductor": conductor, "items": rows}
     if compact:
         payload["compact"] = True
