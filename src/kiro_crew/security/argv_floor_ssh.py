@@ -1088,7 +1088,7 @@ def _is_ssh_to_self(text_lower: str) -> bool:
         outer_depth = 0
         xargs_prefix_index: "int | None" = None  # a bare ``xargs`` in this simple command
         # Once per FRAME, not once per verb token: see ``_is_credential_mint``.
-        disqualified: "bool | None" = None
+        disqualified: "tuple[bool, ...] | None" = None
         for i, token in enumerate(tokens):
             verb = _ssh_family_verb(token)
             # A verb read through a bare glob (``s?h``, a lone ``*``) expands only

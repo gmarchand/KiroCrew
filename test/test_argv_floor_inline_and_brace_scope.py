@@ -1353,8 +1353,8 @@ class TestAnOptionDashEIsNotSedsExecuteCommand:
 
     def test_an_option_alone_keeps_the_exemption(self):
         tokens = ["grep", "-c", "-e", "a", "/tmp/x/*", "/tmp/kirocrew/y"]
-        assert _data_consumer_command_disqualified(tokens) is False
-        assert _data_consumer_command_disqualified([*tokens[:3], "e", *tokens[3:]]) is True
+        assert not any(_data_consumer_command_disqualified(tokens))
+        assert all(_data_consumer_command_disqualified([*tokens[:3], "e", *tokens[3:]]))
 
     @pytest.mark.parametrize(
         "shape",

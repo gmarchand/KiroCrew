@@ -801,7 +801,12 @@ def _url_payload_command(n: int) -> str:
 #: rebuild's budget for every caller and is reused for a second on the event loop, so
 #: no gate scans ``apps/`` on its own thread. A miss refuses, and refuses later callers
 #: at once while that listing is still in flight. Re-measured.
-_PACKAGE_LINE_BUDGET = 35_901
+#: Raised by 55, from 35,901, to 35,956, for push and kill false positives read from
+#: shell structure: a ``$(`` inside double quotes starts its body unquoted, a newline
+#: the shared reader reads as quoted does not split the push segments, an escaped
+#: backtick opens no substitution, and the data-consumer guards are judged per
+#: pipeline. The recorded true positives stay denied. Re-measured.
+_PACKAGE_LINE_BUDGET = 35_956
 
 #: Ceiling on any ONE file in the package. This is what the bound is really for --
 #: a package total says nothing about a single file growing back into a second

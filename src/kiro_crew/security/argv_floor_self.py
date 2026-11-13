@@ -376,7 +376,7 @@ def _is_credential_mint(text_lower: str, *, raw_text: "str | None" = None) -> bo
         # O(len(tokens)) sweep, so re-asking it per trigger token makes the floor
         # quadratic in the trigger count.  ``None`` until the first trigger token needs
         # it, so a frame carrying none pays nothing.
-        disqualified: "bool | None" = None
+        disqualified: "tuple[bool, ...] | None" = None
         for i, token in enumerate(tokens):
             # AN INLINE PROGRAM THAT NAMES THE MINT SURFACE IS DENIED WITHOUT NEEDING THE VERB
             # AS AN ARGV WORD, and it is checked FIRST because it does not depend on the
@@ -847,7 +847,7 @@ def _self_kill_span(text_lower: str) -> "tuple[int, int] | None":
     for source, tokens in _self_frames(text_lower):
         programs = _argv_programs(tokens)
         # Once per FRAME, not once per trigger token: see ``_is_credential_mint``.
-        disqualified: "bool | None" = None
+        disqualified: "tuple[bool, ...] | None" = None
         for i, token in enumerate(tokens):
             if not _is_kill_by_name_program(token):
                 continue
@@ -1147,7 +1147,7 @@ def _matches_self_subcommand(text_lower: str, spec: "tuple[object, ...]") -> boo
         scan = _self_module_flag_scan(tokens)
         # Same reason, for the command-level half of ``_data_consumer_exempt``: see
         # ``_is_credential_mint``.
-        disqualified: "bool | None" = None
+        disqualified: "tuple[bool, ...] | None" = None
         for i in range(len(tokens)):
             prog_idx = _self_program_index(tokens, i, scan)
             if prog_idx is None:
