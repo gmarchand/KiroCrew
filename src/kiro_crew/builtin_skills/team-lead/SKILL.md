@@ -148,7 +148,8 @@ wave, and again before a reseed wave -- a reseed stands up as many sessions as
 a first dispatch. Its posture is one of four words -- `ample`, `tight`,
 `critical`, `unknown` -- and on any of the last three, queue the rest of the
 wave instead of
-dispatching it and say so in the plan. **`unknown` is the posture of a reading
+dispatching it and say so in the plan; how many go out at each posture is
+goal-conductor's rule ("Capacity decides the wave"), not a second count here. **`unknown` is the posture of a reading
 that FAILED, and it queues like `tight`** -- a probe that could not answer is
 the one place where a lead decides from feel, which is the thing this section
 exists to stop. Then give the capacity back: `work_ledger_record`
