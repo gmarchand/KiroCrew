@@ -540,6 +540,9 @@ def test_every_enforced_harness_reaches_the_spawn_preflight(tmp_path: pathlib.Pa
     each harness is launched through its driver (shared runtime or ``AcpClient``).
     Exactly one preflight per spawn, and its mask must be the one the wrap applies.
     """
+    # ``tmp_path`` is its own repo, so the Copilot config walk stops there, not in the
+    # host's home, where a real ``.mcp.json`` would refuse the spawn.
+    (tmp_path / ".git").mkdir()
     from unittest.mock import patch
 
     import acp_launch_capture as capture_mod
