@@ -70,7 +70,7 @@ from types import MappingProxyType
 from typing import Any, ClassVar, Literal, Protocol
 
 from kiro_crew import name_grant
-from kiro_crew.constants import DENY_CAUSE_BATCH_READ_WRITE, DENY_CAUSE_POLICY
+from kiro_crew.constants import DENY_CAUSE_POLICY
 from kiro_crew.executors import run_in_tool_gate_pool
 from kiro_crew.hooks import TOOL_AUTO_APPROVE, TOOL_DENY, identity_grant_covers_child
 from kiro_crew.llm_helpers import _steer_host_deny
@@ -541,7 +541,10 @@ async def _allow(
         take = getattr(ask.wire, "batch_refusal", None)
         reason = take(ask) if take is not None else None
         if reason:
-            return Settled("refused", rung, "host", DENY_CAUSE_BATCH_READ_WRITE, reason)
+            # circular import: the ACP package imports back into this module's callers.
+            from kiro_crew.acp.batch_guard import cause_for
+
+            return Settled("refused", rung, "host", cause_for(reason), reason)
     settled = Settled(outcome if sent else "floor_refused", rung, by)
     policy.audit.approved(ask, settled)
     return settled
