@@ -15369,7 +15369,18 @@
         "keep_current_sign_in": "保留当前登录",
         "signed_in_body_no_refresh": "Agent 以这个 Kiro 账号运行。此登录没有刷新令牌，无法自动续期——请在到期前重新登录。",
         "search_label": "登出或切换 Kiro 账号",
-        "search_description": "登出 agent 使用的 Kiro 登录，或换一个账号登录。"
+        "search_description": "登出 agent 使用的 Kiro 登录，或换一个账号登录。",
+        "using_kiro_cli_title": "正在使用你的 Kiro CLI 登录",
+        "using_kiro_cli_body": "Kiro Agent 以 Kiro CLI 登录的账号运行：{{account}}。你不需要在这里登录。如果你在下面登录，Kiro Agent 会改用那个账号。",
+        "two_accounts_title": "登录了两个不同的账号",
+        "two_accounts_body": "Kiro Agent 以你在这里登录的账号运行：{{here}}。Kiro CLI 登录的是另一个账号：{{cli}}。Kiro Agent 没有使用它。",
+        "maybe_two_accounts_body": "Kiro Agent 以你在这里登录的账号运行：{{here}}。Kiro CLI 也已登录：{{cli}}。{{productName}} 无法判断它们是不是同一个账号。",
+        "account_name_unreadable": "一个 {{productName}} 读不到名称的账号",
+        "account_name_checking": "一个名称还在读取中的账号",
+        "use_kiro_cli_account": "使用 Kiro CLI 的账号",
+        "use_kiro_cli_explain": "这会移除保存在这里的登录。之后 Kiro Agent 以 Kiro CLI 的账号运行。要撤销，请在这里重新登录。",
+        "remove_this_sign_in": "移除这个登录",
+        "keep_it": "保留"
       },
       "strandsSetup": {
         "cancel": "取消",

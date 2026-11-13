@@ -15770,7 +15770,18 @@
         "keep_current_sign_in": "Aktuelle Anmeldung behalten",
         "signed_in_body_no_refresh": "Agenten laufen unter diesem Kiro-Konto. Diese Anmeldung hat kein Refresh-Token und kann sich nicht selbst erneuern – melde dich vor dem Ablauf erneut an.",
         "search_label": "Abmelden oder Kiro-Konto wechseln",
-        "search_description": "Melde dich von der Kiro-Anmeldung ab, die deine Agenten nutzen, oder melde dich mit einem anderen Konto an."
+        "search_description": "Melde dich von der Kiro-Anmeldung ab, die deine Agenten nutzen, oder melde dich mit einem anderen Konto an.",
+        "using_kiro_cli_title": "Die Anmeldung von Kiro CLI wird verwendet",
+        "using_kiro_cli_body": "Kiro Agent läuft unter dem Konto, mit dem Kiro CLI angemeldet ist: {{account}}. Du musst dich hier nicht anmelden. Wenn du dich unten anmeldest, verwendet Kiro Agent stattdessen dieses Konto.",
+        "two_accounts_title": "Zwei verschiedene Konten sind angemeldet",
+        "two_accounts_body": "Kiro Agent läuft unter dem Konto, mit dem du dich hier angemeldet hast: {{here}}. Kiro CLI ist mit einem anderen Konto angemeldet: {{cli}}. Kiro Agent verwendet es nicht.",
+        "maybe_two_accounts_body": "Kiro Agent läuft unter dem Konto, mit dem du dich hier angemeldet hast: {{here}}. Kiro CLI ist ebenfalls angemeldet: {{cli}}. {{productName}} kann nicht feststellen, ob es dasselbe Konto ist.",
+        "account_name_unreadable": "ein Konto, dessen Namen {{productName}} nicht lesen konnte",
+        "account_name_checking": "ein Konto, dessen Name noch gelesen wird",
+        "use_kiro_cli_account": "Konto von Kiro CLI verwenden",
+        "use_kiro_cli_explain": "Dadurch wird die hier gespeicherte Anmeldung entfernt. Kiro Agent läuft dann unter dem Konto von Kiro CLI. Um das rückgängig zu machen, melde dich hier erneut an.",
+        "remove_this_sign_in": "Diese Anmeldung entfernen",
+        "keep_it": "Behalten"
       },
       "strandsSetup": {
         "cancel": "Abbrechen",

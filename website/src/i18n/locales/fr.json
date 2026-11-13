@@ -16171,7 +16171,18 @@
         "keep_current_sign_in": "Conserver la connexion actuelle",
         "signed_in_body_no_refresh": "Les agents s’exécutent avec ce compte Kiro. Cette connexion n’a pas de jeton de rafraîchissement et ne peut pas se renouveler seule — reconnectez-vous avant son expiration.",
         "search_label": "Se déconnecter ou changer de compte Kiro",
-        "search_description": "Déconnecte-toi de la connexion Kiro qu’utilisent tes agents, ou connecte-toi avec un autre compte."
+        "search_description": "Déconnecte-toi de la connexion Kiro qu’utilisent tes agents, ou connecte-toi avec un autre compte.",
+        "using_kiro_cli_title": "Ta connexion Kiro CLI est utilisée",
+        "using_kiro_cli_body": "Kiro Agent s’exécute avec le compte auquel Kiro CLI est connecté : {{account}}. Tu n’as pas besoin de te connecter ici. Si tu te connectes ci-dessous, Kiro Agent utilisera ce compte à la place.",
+        "two_accounts_title": "Deux comptes différents sont connectés",
+        "two_accounts_body": "Kiro Agent s’exécute avec le compte avec lequel tu t’es connecté ici : {{here}}. Kiro CLI est connecté à un autre compte : {{cli}}. Kiro Agent ne l’utilise pas.",
+        "maybe_two_accounts_body": "Kiro Agent s’exécute avec le compte avec lequel tu t’es connecté ici : {{here}}. Kiro CLI est aussi connecté : {{cli}}. {{productName}} ne peut pas savoir s’il s’agit du même compte.",
+        "account_name_unreadable": "un compte dont {{productName}} n’a pas pu lire le nom",
+        "account_name_checking": "un compte dont le nom est en cours de lecture",
+        "use_kiro_cli_account": "Utiliser le compte Kiro CLI",
+        "use_kiro_cli_explain": "Cela supprime la connexion enregistrée ici. Kiro Agent s’exécute ensuite avec le compte Kiro CLI. Pour annuler, reconnecte-toi ici.",
+        "remove_this_sign_in": "Supprimer cette connexion",
+        "keep_it": "La conserver"
       },
       "strandsSetup": {
         "cancel": "Annuler",

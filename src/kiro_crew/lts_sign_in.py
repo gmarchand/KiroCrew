@@ -372,6 +372,8 @@ class _CliEntry:
     token: str = field(repr=False)
     token_type: str
     expires_at: Optional[datetime]
+    #: Which kind of sign-in the row's key holds (a ``KIND_*`` value).
+    kind: str = ""
 
     def live(self, now: datetime) -> bool:
         if not self.token or self.expires_at is None:
@@ -449,6 +451,7 @@ def _kiro_cli_rows(con: Any) -> list[_CliEntry]:
                     else ""
                 ),
                 expires_at=_expiry(blob.get("expires_at") or blob.get("expiresAt")),
+                kind=_CLI_KIND_BY_KEY_SUFFIX.get(key.rsplit(":", 2)[-2], KIND_AWS),
             )
         )
     return entries
@@ -500,36 +503,164 @@ def _kiro_cli_entry() -> Optional[_CliEntry]:
     return chosen
 
 
+#: The kinds of stored sign-in. The first four are the vault's slot names
+#: (``kiro_crew.auth.store.KNOWN_IDENTITIES``); kiro-cli keeps a Builder ID and an
+#: Identity Center sign-in under one key, so its row for either reads as ``KIND_AWS``.
+KIND_SOCIAL = "social"
+KIND_BUILDER_ID = "builder_id"
+KIND_IDENTITY_CENTER = "identity_center"
+KIND_EXTERNAL_IDP = "external_idp"
+KIND_AWS = "aws"
+
+#: The middle part of a kiro-cli token key -> the kind it holds; any other is ``KIND_AWS``.
+_CLI_KIND_BY_KEY_SUFFIX = {"social": KIND_SOCIAL, "external-idp": KIND_EXTERNAL_IDP}
+
+
+def _kinds_can_match(vault_kind: str, cli_kind: str) -> bool:
+    """Could a vault sign-in of *vault_kind* and a kiro-cli one of *cli_kind* be one account?"""
+    if cli_kind == KIND_AWS:
+        return vault_kind in (KIND_BUILDER_ID, KIND_IDENTITY_CENTER)
+    return vault_kind == cli_kind
+
+
+def same_account(vault_kind: str, vault_arn: str, cli_kind: str, cli_arn: str) -> Optional[bool]:
+    """Are the vault's sign-in and kiro-cli's one account? ``None`` when it cannot be told.
+
+    Two profile ARNs decide it. Without both, a different kind of sign-in is a
+    different account, and so is a Builder ID in the vault beside a kiro-cli sign-in
+    that names a profile of its own (a Builder ID has none; the engine is given a
+    fixed one). Everything else is unknown: two Builder IDs carry nothing that tells
+    one person from another.
+    """
+    if vault_arn and cli_arn:
+        return vault_arn == cli_arn
+    if not _kinds_can_match(vault_kind, cli_kind):
+        return False
+    if vault_kind == KIND_BUILDER_ID and cli_arn:
+        from kiro_crew.auth.provider import BUILDER_ID_PROFILE_ARN
+
+        if cli_arn != BUILDER_ID_PROFILE_ARN:
+            return False
+    return None
+
+
 #: Account pairs already warned about in this process (oss mismatch: one warning).
 _warned_mismatches: set = set()
 
 
-def _mismatch(vault_arn: str, policy: Policy) -> None:
+def _mismatch(vault: Any, policy: Policy) -> None:
     """Refuse or warn when kiro-cli stores another account beside the vault's.
 
-    Only a kiro-cli sign-in that names a profile can disagree. kiro-cli is not the
-    sign-in here, so its store failing to read is logged and decides nothing.
+    The LTS refusal needs two profile ARNs that differ. The oss warning also
+    covers a sign-in of a different kind (:func:`same_account`), which carries no
+    ARN to compare. kiro-cli is not the sign-in here, so its store failing to read
+    is logged and decides nothing.
     """
-    if not vault_arn:
+    vault_arn = vault.profile_arn or ""
+    if not vault_arn and policy.refuse_mismatch:
         return
     try:
         cli = _kiro_cli_entry()
     except SignInError:
         logger.debug("kiro-cli store unreadable beside the vault sign-in", exc_info=True)
         return
-    if cli is None or not cli.profile_arn or cli.profile_arn == vault_arn:
+    if cli is None:
         return
-    message = _disagree_message(vault_arn, cli.profile_arn)
     if policy.refuse_mismatch:
+        if not cli.profile_arn or cli.profile_arn == vault_arn:
+            return
         raise SignInError(
-            f"{message}; sign in to one account, or remove one of them "
-            f"(`{_vault_logout_command()}`)",
+            f"{_disagree_message(vault_arn, cli.profile_arn)}; sign in to one account, "
+            f"or remove one of them (`{_vault_logout_command()}`)",
             CAUSE_SIGN_INS_DISAGREE,
         )
-    pair = (vault_arn, cli.profile_arn)
+    vault_kind = str(getattr(vault, "identity", "") or "")
+    if same_account(vault_kind, vault_arn, cli.kind, cli.profile_arn) is not False:
+        return
+    pair = (vault_kind, vault_arn, cli.kind, cli.profile_arn)
     if pair not in _warned_mismatches:
         _warned_mismatches.add(pair)
+        message = (
+            _disagree_message(vault_arn, cli.profile_arn)
+            if vault_arn and cli.profile_arn
+            else (
+                f"{SOURCE_LABELS[Source.VAULT]} and {SOURCE_LABELS[Source.KIRO_CLI]} "
+                "are different accounts"
+            )
+        )
         logger.warning("%s; Kiro Crew uses its own sign-in", message)
+
+
+@dataclass(frozen=True)
+class StoredSignIn:
+    """One stored sign-in without its token: its kind, and whether it still works."""
+
+    kind: str
+    live: bool
+    #: Compared, never shown: a surface names an account by its kind, not by this.
+    profile_arn: str = field(default="", repr=False)
+    #: Changes when the stored entry does, so a reader can cache what it learned about it.
+    stamp: str = field(default="", repr=False)
+
+
+@dataclass(frozen=True)
+class StoredSignIns:
+    """Both stored sign-ins, for a surface that says which one sessions run as.
+
+    ``None`` with ``*_readable`` true means none is stored; with it false the store
+    could not be read, which is unknown and never "signed out".
+    """
+
+    vault: Optional[StoredSignIn]
+    vault_readable: bool
+    kiro_cli: Optional[StoredSignIn]
+    kiro_cli_readable: bool
+
+    @property
+    def same_account(self) -> Optional[bool]:
+        """:func:`same_account` over the two, ``None`` unless both are stored."""
+        if self.vault is None or self.kiro_cli is None:
+            return None
+        return same_account(
+            self.vault.kind, self.vault.profile_arn, self.kiro_cli.kind, self.kiro_cli.profile_arn
+        )
+
+
+def stored_sign_ins() -> StoredSignIns:
+    """What the vault and kiro-cli each store, read by presence. Never raises.
+
+    The same two reads :func:`select` makes, kept apart instead of picked between,
+    with no token in the answer. Blocking file IO -- call off the loop.
+    """
+    import hashlib
+
+    vault: Optional[StoredSignIn] = None
+    vault_readable = True
+    try:
+        token = _vault_entry()
+        if token is not None:
+            vault = StoredSignIn(
+                kind=str(getattr(token, "identity", "") or ""),
+                live=bool(token.is_usable()) and not _vault_rejected(token),
+                profile_arn=token.profile_arn or "",
+            )
+    except Exception:  # noqa: BLE001 - an unreadable vault is unknown, never empty
+        vault_readable = False
+    kiro_cli: Optional[StoredSignIn] = None
+    kiro_cli_readable = True
+    try:
+        entry = _kiro_cli_entry()
+        if entry is not None:
+            stamp = f"{entry.kind}|{entry.profile_arn}|{entry.expires_at}"
+            kiro_cli = StoredSignIn(
+                kind=entry.kind,
+                live=entry.live(datetime.now(timezone.utc)),
+                profile_arn=entry.profile_arn,
+                stamp=hashlib.sha256(stamp.encode()).hexdigest()[:16],
+            )
+    except Exception:  # noqa: BLE001 - an unreadable store is unknown, never empty
+        kiro_cli_readable = False
+    return StoredSignIns(vault, vault_readable, kiro_cli, kiro_cli_readable)
 
 
 # ── the resolver ────────────────────────────────────────────────────────────
@@ -541,7 +672,7 @@ def _select(policy: Policy) -> Tuple[Selection, Optional[_CliEntry]]:
         vault_arn = vault.profile_arn or ""
         if not vault_arn and policy.require_profile:
             raise SignInError(_no_profile_message(), CAUSE_NOT_ELIGIBLE, Source.VAULT)
-        _mismatch(vault_arn, policy)
+        _mismatch(vault, policy)
         problem = None
         if not vault.is_usable() or _vault_rejected(vault):
             problem = _unusable("has expired and cannot be renewed")

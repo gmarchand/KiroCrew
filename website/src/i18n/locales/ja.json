@@ -15369,7 +15369,18 @@
         "keep_current_sign_in": "現在のサインインを維持",
         "signed_in_body_no_refresh": "エージェントはこの Kiro アカウントとして動作します。このサインインにはリフレッシュトークンがなく自動更新できません。期限切れになる前に再度サインインしてください。",
         "search_label": "サインアウト・Kiro アカウント切り替え",
-        "search_description": "エージェントが使う Kiro サインインからサインアウトするか、別のアカウントでサインインします。"
+        "search_description": "エージェントが使う Kiro サインインからサインアウトするか、別のアカウントでサインインします。",
+        "using_kiro_cli_title": "Kiro CLI のサインインを使用中",
+        "using_kiro_cli_body": "Kiro Agent は Kiro CLI がサインインしているアカウントとして動作します：{{account}}。ここでサインインする必要はありません。下でサインインすると、Kiro Agent は代わりにそのアカウントを使います。",
+        "two_accounts_title": "2 つの異なるアカウントでサインインしています",
+        "two_accounts_body": "Kiro Agent はここでサインインしたアカウントとして動作します：{{here}}。Kiro CLI は別のアカウントにサインインしています：{{cli}}。Kiro Agent はそれを使っていません。",
+        "maybe_two_accounts_body": "Kiro Agent はここでサインインしたアカウントとして動作します：{{here}}。Kiro CLI もサインインしています：{{cli}}。{{productName}} は、同じアカウントかどうかを判断できません。",
+        "account_name_unreadable": "{{productName}} が名前を読み取れなかったアカウント",
+        "account_name_checking": "名前を読み取り中のアカウント",
+        "use_kiro_cli_account": "Kiro CLI のアカウントを使う",
+        "use_kiro_cli_explain": "ここに保存されているサインインを削除します。その後、Kiro Agent は Kiro CLI のアカウントとして動作します。元に戻すには、ここでもう一度サインインしてください。",
+        "remove_this_sign_in": "このサインインを削除",
+        "keep_it": "そのままにする"
       },
       "strandsSetup": {
         "cancel": "キャンセル",

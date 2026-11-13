@@ -16171,7 +16171,18 @@
         "keep_current_sign_in": "Manter o login atual",
         "signed_in_body_no_refresh": "Os agentes são executados com esta conta Kiro. Este login não tem token de atualização e não pode se renovar sozinho — entre novamente antes que expire.",
         "search_label": "Sair ou trocar de conta do Kiro",
-        "search_description": "Saia do login do Kiro que seus agentes usam ou entre com outra conta."
+        "search_description": "Saia do login do Kiro que seus agentes usam ou entre com outra conta.",
+        "using_kiro_cli_title": "Usando seu login do Kiro CLI",
+        "using_kiro_cli_body": "O Kiro Agent é executado com a conta em que o Kiro CLI está conectado: {{account}}. Você não precisa entrar aqui. Se você entrar abaixo, o Kiro Agent passará a usar essa conta.",
+        "two_accounts_title": "Duas contas diferentes estão conectadas",
+        "two_accounts_body": "O Kiro Agent é executado com a conta com que você entrou aqui: {{here}}. O Kiro CLI está conectado a outra conta: {{cli}}. O Kiro Agent não a está usando.",
+        "maybe_two_accounts_body": "O Kiro Agent é executado com a conta com que você entrou aqui: {{here}}. O Kiro CLI também está conectado: {{cli}}. O {{productName}} não consegue saber se são a mesma conta.",
+        "account_name_unreadable": "uma conta cujo nome o {{productName}} não conseguiu ler",
+        "account_name_checking": "uma conta cujo nome ainda está sendo lido",
+        "use_kiro_cli_account": "Usar a conta do Kiro CLI",
+        "use_kiro_cli_explain": "Isso remove o login salvo aqui. Depois, o Kiro Agent é executado com a conta do Kiro CLI. Para desfazer, entre aqui novamente.",
+        "remove_this_sign_in": "Remover este login",
+        "keep_it": "Manter"
       },
       "strandsSetup": {
         "cancel": "Cancelar",

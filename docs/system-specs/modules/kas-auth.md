@@ -616,6 +616,30 @@ engine instead ([aws-control.md](aws-control.md)).
   Crew-owned and reports "not signed in"; only an empty vault hands it to
   kiro-cli. Removing the Crew sign-in (`kirocrew kas logout`) is how a user goes
   back to kiro-cli's.
+- The card says which account sessions run as when kiro-cli is signed in too. It reads
+  `GET /api/kas-login/sources` (`dashboard/handlers/kas_login_sources.py`), which sits
+  on the dashboard listener behind the same token check as `GET /api/kas-login` and
+  changes nothing: it reports both stores by presence
+  (`lts_sign_in.stored_sign_ins`), which of the two a new session uses, and whether
+  they are one account (`lts_sign_in.same_account`: two profile ARNs decide; without
+  both, a sign-in of a different kind is a different account, and so is a Builder ID
+  in the vault beside a kiro-cli sign-in that names its own profile; anything else is
+  unknown). The answer names an account by its kind, its portal host and, for
+  kiro-cli and the dashboard owner only, the e-mail `kiro-cli whoami` reports. It
+  carries no token, ARN or other identifier, and the e-mail is never logged.
+  `whoami` is slow, so it runs outside the request: the first answer for a stored
+  kiro-cli sign-in is `name_pending`, the reading is kept for the process against that
+  stored entry, and a read that fails names nothing. Whether kiro-cli is signed in
+  comes from the store read alone, so a slow or failed `whoami` is unknown, never
+  "signed out". With no vault sign-in and a live kiro-cli one that the relay would run
+  on (`kas_route.relay_runs_on_kiro_cli_sign_in`), the card says Kiro Agent is using
+  the Kiro CLI sign-in. With both stored and not provably one account, it names both
+  and offers **Use the Kiro CLI account**, which asks once in place and then runs the
+  card's own sign-out (`POST /api/kas-login/logout`, owner-only); signing in on the
+  card again undoes it. The button shows only where the relay would then run on
+  kiro-cli's sign-in. The same verdict drives the one oss log warning, so a Builder ID
+  in the vault beside another kiro-cli account is warned about too; the LTS refusal
+  still needs two profile ARNs that differ.
 - The product entry point for the flow is the **Kiro sign-in** section on Settings >
   Agent Harness (`website/src/pages/developer/KiroSignInCard.tsx`, `compact`
   form), rendered by `AgentBackendTab` INSIDE the KAS row's detail and only while

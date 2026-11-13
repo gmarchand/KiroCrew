@@ -664,3 +664,94 @@ class TestEditionFree:
         from kiro_crew.dashboard.lts_gate_middleware import lts_login_source
 
         assert await lts_login_source() is None
+
+
+class TestStoredSignIns:
+    """Both stored sign-ins, kept apart, for a surface that says which one is used."""
+
+    @pytest.mark.parametrize(
+        "vault_kind, vault_arn, cli_kind, cli_arn, expected",
+        [
+            ("identity_center", _ARN, "aws", _ARN, True),
+            ("identity_center", _ARN, "aws", _OTHER_ARN, False),
+            # No two ARNs to compare: a different kind is a different account.
+            ("builder_id", "", "social", "", False),
+            ("builder_id", "", "external_idp", _ARN, False),
+            ("social", _ARN, "aws", "", False),
+            # A Builder ID has no profile; a kiro-cli sign-in that names one is another account.
+            ("builder_id", "", "aws", _ARN, False),
+            # Nothing tells one Builder ID from another.
+            ("builder_id", "", "aws", "", None),
+            ("identity_center", _ARN, "aws", "", None),
+            ("social", "", "social", "", None),
+        ],
+    )
+    def test_the_verdict(self, vault_kind, vault_arn, cli_kind, cli_arn, expected) -> None:
+        assert sign_in.same_account(vault_kind, vault_arn, cli_kind, cli_arn) is expected
+
+    def test_a_kiro_cli_builder_id_beside_a_vault_builder_id_is_unknown(self) -> None:
+        from kiro_crew.auth.provider import BUILDER_ID_PROFILE_ARN
+
+        assert sign_in.same_account("builder_id", "", "aws", BUILDER_ID_PROFILE_ARN) is None
+
+    def test_nothing_stored(self, store, kiro_cli) -> None:
+        found = sign_in.stored_sign_ins()
+        assert (found.vault, found.kiro_cli) == (None, None)
+        assert found.vault_readable and found.kiro_cli_readable
+        assert found.same_account is None
+
+    def test_only_kiro_cli(self, store, kiro_cli) -> None:
+        kiro_cli(key="kirocli:social:token")
+        found = sign_in.stored_sign_ins()
+        assert found.vault is None
+        assert (found.kiro_cli.kind, found.kiro_cli.live) == ("social", True)
+
+    def test_both_for_two_accounts(self, vault, kiro_cli) -> None:
+        vault()
+        kiro_cli(profile_arn=_OTHER_ARN)
+        found = sign_in.stored_sign_ins()
+        assert (found.vault.kind, found.kiro_cli.kind) == ("identity_center", "aws")
+        assert found.same_account is False
+
+    def test_a_lapsed_kiro_cli_sign_in_is_stored_and_not_live(self, store, kiro_cli) -> None:
+        kiro_cli(expires_in=-60)
+        found = sign_in.stored_sign_ins()
+        assert found.kiro_cli is not None and found.kiro_cli.live is False
+
+    def test_an_unreadable_kiro_cli_store_is_unknown_not_signed_out(self, vault, kiro_cli) -> None:
+        vault()
+        kiro_cli().write_bytes(b"SQLite format 3\x00" + b"\xff" * 4096)
+        found = sign_in.stored_sign_ins()
+        assert found.kiro_cli is None and found.kiro_cli_readable is False
+        assert found.vault is not None
+
+    def test_the_answer_prints_no_token_or_arn(self, vault, kiro_cli) -> None:
+        vault()
+        kiro_cli(profile_arn=_OTHER_ARN)
+        printed = repr(sign_in.stored_sign_ins())
+        for secret in ("vault-access", "cli-access", _ARN, _OTHER_ARN):
+            assert secret not in printed
+
+    def test_the_stamp_changes_with_the_stored_entry(self, store, kiro_cli) -> None:
+        kiro_cli()
+        first = sign_in.stored_sign_ins().kiro_cli.stamp
+        kiro_cli(profile_arn=_OTHER_ARN)
+        assert first and sign_in.stored_sign_ins().kiro_cli.stamp != first
+
+    def test_oss_warns_once_about_a_builder_id_beside_another_account(
+        self, vault, kiro_cli, caplog, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(sign_in, "_warned_mismatches", set())
+        vault(None, auth_method="builder_id")
+        kiro_cli(profile_arn=_OTHER_ARN)
+        with caplog.at_level("WARNING", logger="kiro_crew.lts_sign_in"):
+            assert sign_in.select(policy=sign_in.OSS).source is sign_in.Source.VAULT
+            assert sign_in.select(policy=sign_in.OSS).source is sign_in.Source.VAULT
+        warnings = [r for r in caplog.records if "different accounts" in r.getMessage()]
+        assert len(warnings) == 1
+        assert _OTHER_ARN not in warnings[0].getMessage()
+
+    def test_lts_still_refuses_only_on_two_different_profiles(self, vault, kiro_cli) -> None:
+        vault()
+        kiro_cli(profile_arn=None, key="kirocli:social:token")
+        assert sign_in.select().source is sign_in.Source.VAULT

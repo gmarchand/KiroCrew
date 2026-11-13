@@ -16171,7 +16171,18 @@
         "keep_current_sign_in": "Mantieni l’accesso attuale",
         "signed_in_body_no_refresh": "Gli agenti vengono eseguiti con questo account Kiro. Questo accesso non ha un token di aggiornamento e non può rinnovarsi da solo: accedi di nuovo prima che scada.",
         "search_label": "Esci o cambia account Kiro",
-        "search_description": "Esci dall’accesso a Kiro usato dai tuoi agenti, oppure accedi con un altro account."
+        "search_description": "Esci dall’accesso a Kiro usato dai tuoi agenti, oppure accedi con un altro account.",
+        "using_kiro_cli_title": "Viene usato il tuo accesso Kiro CLI",
+        "using_kiro_cli_body": "Kiro Agent viene eseguito con l’account con cui Kiro CLI ha effettuato l’accesso: {{account}}. Non devi accedere qui. Se accedi qui sotto, Kiro Agent userà quell’account.",
+        "two_accounts_title": "Sono collegati due account diversi",
+        "two_accounts_body": "Kiro Agent viene eseguito con l’account con cui hai effettuato l’accesso qui: {{here}}. Kiro CLI ha effettuato l’accesso con un altro account: {{cli}}. Kiro Agent non lo usa.",
+        "maybe_two_accounts_body": "Kiro Agent viene eseguito con l’account con cui hai effettuato l’accesso qui: {{here}}. Anche Kiro CLI ha effettuato l’accesso: {{cli}}. {{productName}} non può stabilire se si tratta dello stesso account.",
+        "account_name_unreadable": "un account di cui {{productName}} non è riuscito a leggere il nome",
+        "account_name_checking": "un account il cui nome è ancora in lettura",
+        "use_kiro_cli_account": "Usa l’account Kiro CLI",
+        "use_kiro_cli_explain": "Questo rimuove l’accesso salvato qui. Kiro Agent verrà quindi eseguito con l’account Kiro CLI. Per annullare, accedi di nuovo qui.",
+        "remove_this_sign_in": "Rimuovi questo accesso",
+        "keep_it": "Mantienilo"
       },
       "strandsSetup": {
         "cancel": "Annulla",
