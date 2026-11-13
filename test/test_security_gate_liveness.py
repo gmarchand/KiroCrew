@@ -801,7 +801,12 @@ def _url_payload_command(n: int) -> str:
 #: rebuild's budget for every caller and is reused for a second on the event loop, so
 #: no gate scans ``apps/`` on its own thread. A miss refuses, and refuses later callers
 #: at once while that listing is still in flight. Re-measured.
-_PACKAGE_LINE_BUDGET = 35_901
+#: Raised by 64, from 35,901, to 35,965, for the ``local-destructive-rm-rf-root``
+#: row's scratch view (``rm_floor.scratch_rm_view``): a plain ``rm`` whose every
+#: operand is a named entry under ``/tmp`` or ``/var/tmp`` is blanked for that one
+#: row only, and ``is_denied`` judges the row on that view. Every other row, and the
+#: rm floor for ``/`` and ``~``, read the full text. Re-measured.
+_PACKAGE_LINE_BUDGET = 35_965
 
 #: Ceiling on any ONE file in the package. This is what the bound is really for --
 #: a package total says nothing about a single file growing back into a second

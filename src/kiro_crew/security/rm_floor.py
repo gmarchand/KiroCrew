@@ -6,6 +6,7 @@ shells included. A seatbelt, not a parser: other shapes stay with the rows and t
 
 from __future__ import annotations
 
+import os
 import re
 
 from ..trust_patterns import ENV_ASSIGNMENT_RE
@@ -65,6 +66,55 @@ def _pull_trailing_fd_prefix(seg: "list[str]") -> str:
 
 def _can_fire(command: str) -> bool:
     return bool(_CAN_FIRE_RE.search(command))
+
+
+#: Scratch roots whose named entries an ``rm`` may remove without the root row asking.
+_SCRATCH_ROOTS = ("/tmp", "/var/tmp")
+#: Characters that make a word more than its literal text (expansion, glob, brace, tilde).
+_NOT_LITERAL = frozenset("$`*?[]{}~\\'\"")
+
+
+def _is_scratch_entry(path: str) -> bool:
+    """*path* names an entry below a scratch root: ``/tmp/<name>[/...]``, no ``.``/``..``,
+    no trailing ``/`` (that follows a symlink), and its folder resolves under that root."""
+    for root in _SCRATCH_ROOTS:
+        parts = path[len(root) + 1 :].split("/")
+        if path.startswith(root + "/") and all(p not in ("", ".", "..") for p in parts):
+            parent = os.path.realpath(os.path.dirname(path))
+            real_root = os.path.realpath(root)
+            return parent == real_root or parent.startswith(real_root + os.sep)
+    return False
+
+
+def scratch_rm_view(command: str) -> "str | None":
+    """*command* with each plain ``rm`` whose every operand is a scratch entry blanked,
+    or ``None`` when there is none. Only the ``local-destructive-rm-rf-root`` row reads
+    this view: its pattern matches any ``rm -rf /…``, and ``rm -rf /tmp/build`` is not
+    the root. The ``rm`` must be the program word itself, unquoted, with literal words
+    only and no ``--``; anything else stays in the text for the row to judge."""
+    if "rm" not in command:
+        return None
+    try:
+        commands = _commands.read_commands(command, heredocs=True)
+    except Exception:  # noqa: BLE001 - an unreadable command keeps the row's reading
+        return None
+    spans = []
+    for cmd in commands:
+        argv = cmd.argv
+        if not argv or argv[0].raw != "rm" or cmd.heredocs:
+            continue
+        words = [w.raw for w in argv[1:]]
+        operands = [w for w in words if not w.startswith("-")]
+        if not operands or "--" in words or any(set(w) & _NOT_LITERAL for w in words):
+            continue
+        if all(_is_scratch_entry(w) for w in operands):
+            spans.append((argv[0].start, argv[-1].end))
+    if not spans:
+        return None
+    out = list(command)
+    for start, end in spans:
+        out[start:end] = " " * (end - start)
+    return "".join(out)
 
 
 def _names_rm_word(command: str) -> bool:

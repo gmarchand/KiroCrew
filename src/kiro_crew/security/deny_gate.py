@@ -846,7 +846,22 @@ def is_denied(
             )
 
     # ── Pattern passes (shared with the synthesized tier's ``segments=True``) ──
-    pattern_denial = _deny_pattern_passes(tool_name, lower, all_patterns, _reason, shipped, waive)
+    # The ``rm -rf /.*`` row matches every absolute path. It reads a view where each
+    # plain ``rm`` of scratch entries only (``rm -rf /tmp/build``) is blanked, so it
+    # still judges every other rm and every other mention of the text.
+    _rm = _submodule("rm_floor")
+    rm_root = (_rm._RM_FLOOR_BY_KIND.get("root", ("", ""))[1], True)
+    scratch_view = _rm.scratch_rm_view(tool_name) if rm_root in all_patterns else None
+    if scratch_view is None:
+        pattern_denial = _deny_pattern_passes(
+            tool_name, lower, all_patterns, _reason, shipped, waive
+        )
+    else:
+        pattern_denial = _deny_pattern_passes(
+            scratch_view, scratch_view.lower(), [rm_root], _reason, shipped, waive
+        ) or _deny_pattern_passes(
+            tool_name, lower, [p for p in all_patterns if p != rm_root], _reason, shipped, waive
+        )
     if pattern_denial is not None:
         return pattern_denial
     # ── Recursive-force rm floor (argv-structural, UNION with the regex) ──
@@ -855,7 +870,6 @@ def is_denied(
     # for recursive + force in any spelling against the root or home dir itself,
     # only for a row still in the effective set, and only when the text could
     # hold an rm at all, so a command with none is never refused by it.
-    _rm = _submodule("rm_floor")
     rm_enabled = {
         kind: rule for kind, rule in _rm._RM_FLOOR_BY_KIND.items() if rule[1] in regex_patterns
     }
